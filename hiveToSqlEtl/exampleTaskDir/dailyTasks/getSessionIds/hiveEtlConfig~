@@ -1,0 +1,13 @@
+#!noop This should only be sourced not executed
+#
+hiveFileName=selectSissionVisitorId.hive
+hiveServer=svpr-aha01.lpdomain.com
+hiveServerUserName=esoniat
+# this must be the same as the name of the table in the sql file
+hiveResultFileName=testSessionIds
+# this imports into a table and must have the same name as the hiveResultFileName
+sqlFileName=insertSessionsIds.sql
+sqlServer=nycps.lpnet.com
+sqlUser=root
+sqlPassword=prince123
+

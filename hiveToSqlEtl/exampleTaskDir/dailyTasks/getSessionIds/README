@@ -1,0 +1,4 @@
+This is just a silly pointless task that gets some data and places
+It in the database.  It essentially gets the same data every time
+but does generate a dynamic column that reflects when the query was run.
+Since it is hive you will see how parts are run at differnt times.

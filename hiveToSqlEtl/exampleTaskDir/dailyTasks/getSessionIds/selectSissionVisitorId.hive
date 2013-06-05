@@ -1,0 +1,29 @@
+--
+-- Select with an dynamic offset crashes out of memory
+--
+-- SELECT session_id,time_stamp
+-- FROM vs_hdfs_v1 WHERE site_id ='74714728' AND day IN (from_unixtime(unix_timestamp()-(24*60*60),'yyyyMMdd'))
+--
+-- Simple select
+-- Tested, works 
+--
+-- SELECT session_id,time_stamp
+-- FROM vs_hdfs_v1 WHERE site_id ='74714728' AND day IN('20130517');
+-- 
+-- Select with a dynamic column of date only in hdfs day stype
+-- Tested, works
+--
+-- SELECT session_id,time_stamp,from_unixtime(unix_timestamp()-(24*60*60),'yyyyMMdd')
+-- FROM vs_hdfs_v1 WHERE site_id ='74714728' AND day IN('20130517');
+--
+-- Select with a dynamic column of date /time
+-- Tested, works
+--
+--
+-- SELECT session_id,time_stamp,from_unixtime(unix_timestamp()-(24*60*60),'yyyyMMdd HH:mm:ss') 
+-- FROM vs_hdfs_v1 WHERE site_id ='74714728' AND day IN('20130517');
+--
+-- Select with timestamp raw, timstamp formated, and insert time formated
+SELECT session_id,time_stamp,from_unixtime(round(time_stamp/1000),'yyyyMMdd HH:mm:ss'), from_unixtime(unix_timestamp()-(24*60*60),'yyyyMMdd HH:mm:ss.SSS') 
+FROM vs_hdfs_v1 WHERE site_id ='74714728' AND day IN('20130517');
+
