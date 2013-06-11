@@ -1,0 +1,61 @@
+-- 
+-- Query provided by Thomas Ganka
+-- Adapted by Ed Soniat to do the previous two days
+--
+-- Set the number of days AGO here
+-- 
+SET DAYS_AGO=2;
+--
+--
+SET SECONDS_OFFSET=(86000*${hiveconf:DAYS_AGO});
+-- 
+
+-- Perfromance tuning
+-- Do not just add memory unless you undrstanyd the problem 
+-- SET mapred.child.java.opts="-server -Xmx2048M"
+--
+-- Select the full table of UDES down to just the ones that have the global name "OrderNumber"
+-- EXPLAIN 
+SELECT session_id,
+       visitor_id,
+       FROM_UNIXTIME(ROUND(session_time/1000)) AS orig_sess_time,    
+       udeValue 
+FROM (
+--  The hdfs session evts strings have been completely reduced to a table by this select using
+--  the GET_JSON_OBJECT. 
+    SELECT session_id,
+           visitor_id,
+           session_time,
+           GET_JSON_OBJECT(CONCAT(eventAsJSON, "}"), '$.UDE_GLOBAL_NAME') AS udeGlobalName,
+           GET_JSON_OBJECT(CONCAT(eventAsJSON, "}"), '$.UDE_VALUE')       AS udeValue
+    FROM (
+--         This produces a "table" via the lateral view which has all the UDEs as JSON objects in a 
+--         JSON array, prepared for the GET_JSON_OBJECT in the outer select with the LATERAL VIEW,
+--         the concat and the replace.
+           SELECT session_id,
+                  visitor_id,
+                  session_time,
+--                The fist and last UDE string from session have a [{ and a ]} respectfully and these
+--                must be removed.  Also each ude string must be wrapped in {} to form a JSON object
+--                so that the outter select can use GET_JSON_OBJECT to find the name and value
+                  concat("{",  REGEXP_REPLACE(udeEvents, "\\[\\{|\\}\\]", "")  , "}") eventAsJSON
+            FROM (
+--                Gets the PUDEValue string from evts as a single string that is not quite JSON and
+--                must be split and exploded to view as single UDE event strings.
+                  SELECT session_id,
+                         visitor_id, 
+                         GET_JSON_OBJECT(evts, '$.PVisitorLoginEvent.evts[0].SESSION_START_DT') session_time,
+                         GET_JSON_OBJECT(evts, '$.PUDEValue.evts[*]') udeEventString
+                         FROM vs_hdfs_v1 
+                  WHERE site='76226072' 
+                        -- represetn the current time in the same format as day eg 20130130
+                        AND day > FROM_unixTime(unix_timestamp() - ${hiveconf:SECONDS_OFFSET},'yyyyMMdd')
+            ) sessionsUdeEvts   
+--          This splits the udeEvent string around the },{, explodes it and makes a table of strings.
+--          Each line in this lateral view table is a singe UDE event, the first and last have a [{ and {]
+--          espectively that are cleaned up in the select out side of this one.
+            LATERAL VIEW EXPLODE(SPLIT( udeEventString, "\\},\\{")) adTable AS udeEvents
+    ) sessionJSONUdeEvents 
+) sessionAllUDETable
+WHERE udeGlobalName in ('OrderNumber');
+   

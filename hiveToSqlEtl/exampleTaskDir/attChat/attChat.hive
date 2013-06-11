@@ -1,0 +1,28 @@
+-- 
+-- Query provided by Thomas Ganka
+-- Adapted by Ed Soniat to do the previous two days
+--
+-- Set the number of days AGO here
+-- 
+SET DAYS_AGO=2;
+--
+--
+SET SECONDS_OFFSET=(86000*${hiveconf:DAYS_AGO});
+--
+-- Perfromance tuning
+-- Do not just add memory unless you undrstanyd the problem 
+-- SET mapred.child.java.opts="-server -Xmx2048M"
+-- 
+--
+-- EXPLAIN 
+SELECT session_id, 
+       visitor_id,
+       from_unixtime(round(time_stamp/1000)) ,
+       GET_JSON_OBJECT(biz,'$.Eng.biz[*].ENG_INTERACTIVE_IND') 
+FROM vs_hdfs_v1 
+-- For sites not in other use site=<siteid>
+-- For sites in other use site='other' AND site_id=<siteid>
+WHERE site='76226072' 
+    AND get_json_object(biz,'$.Eng.biz[*].ENG_INTERACTIVE_IND') != '0.0' 
+    AND day > FROM_unixTime(unix_timestamp() - ${hiveconf:SECONDS_OFFSET},'yyyyMMdd')
+;

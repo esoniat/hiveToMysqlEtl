@@ -56,7 +56,7 @@ for taskDir in * ; do
     fi
     # Inform about dirs that do not have config files.
     if [[ ! -f $taskDir/${etlConfigFileName} ]] ; then
-	    echo "Skiping ${taskDir}. No ${etlConfigFileName} found"
+	    echo "$(date) Skiping ${taskDir}. No ${etlConfigFileName} found" >> ${scheduledRunLog}
     else
         echo "$(date) starting task ${taskDir} in background" >> ${scheduledRunLog}
 	    cd ${taskDir} >> ${scheduledRunLog}

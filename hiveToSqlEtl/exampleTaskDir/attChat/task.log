@@ -1,0 +1,16 @@
+Executing etl task in attChat
+Starting attempt 0 of attChat.hive taskId: 8af69013-aab4-4952-8e30-f7f773929543
+Copied attChat.hive to esoniat@svpr-aha01.lpdomain.com:adHocEtl/D:\Analytics\hiveEtl\taskDirectories\dailyTasks/attChat/8af69013-aab4-4952-8e30-f7f773929543.hive
+Retrieving esoniat@svpr-aha01.lpdomain.com:adHocEtl/D:\Analytics\hiveEtl\taskDirectories\dailyTasks/attChat/8af69013-aab4-4952-8e30-f7f773929543.result and log file
+Finished 8af69013-aab4-4952-8e30-f7f773929543.hive with no apparent errors
+Removing files from esoniat@svpr-aha01.lpdomain.com:adHocEtl/D:\Analytics\hiveEtl\taskDirectories\dailyTasks/attChat
+Task 8af69013-aab4-4952-8e30-f7f773929543 loading data from pfaaS3$ with /cygdrive/d/Analytics/hiveEtl/taskDirectories/dailyTasks/attChat/insertAttChat.sql
+Executing etl task in attChat
+Starting attempt 0 of attChat.hive taskId: 09d826d3-e22f-437e-9255-2598b17a29f7
+Copied attChat.hive to esoniat@svpr-aha01.lpdomain.com:adHocEtl/D:\Analytics\hiveEtl\taskDirectories\dailyTasks/attChat/09d826d3-e22f-437e-9255-2598b17a29f7.hive
+Retrieving esoniat@svpr-aha01.lpdomain.com:adHocEtl/D:\Analytics\hiveEtl\taskDirectories\dailyTasks/attChat/09d826d3-e22f-437e-9255-2598b17a29f7.result and log file
+Finished 09d826d3-e22f-437e-9255-2598b17a29f7.hive with no apparent errors
+Removing files from esoniat@svpr-aha01.lpdomain.com:adHocEtl/D:\Analytics\hiveEtl\taskDirectories\dailyTasks/attChat
+Task 09d826d3-e22f-437e-9255-2598b17a29f7 loading data from pfaaS3$ with /cygdrive/d/Analytics/hiveEtl/taskDirectories/dailyTasks/attChat/insertAttChat.sql
+Task 09d826d3-e22f-437e-9255-2598b17a29f7 successfully loaded data
+Finished etl task in attChat

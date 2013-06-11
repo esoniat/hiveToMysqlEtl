@@ -1,0 +1,17 @@
+#!noop This should only be sourced not executed
+#
+# Set these according to your hive and sql
+hiveFileName=attChat.hive
+hiveResultFileName=attChats
+sqlFileName=insertAttChat.sql
+#
+# The values below normally do not change
+#
+hiveServer=svpr-aha01.lpdomain.com
+hiveServerUserName=esoniat
+sqlServer=nycps.lpnet.com
+sqlUser=hiveetl
+sqlPassword=pfaaS3$
+
+
+

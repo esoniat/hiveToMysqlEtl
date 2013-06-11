@@ -68,71 +68,78 @@ function runHiveAndSql() {
         # reset to success until proven otherwise
         let hiveStatus=0
         let sshStatus=0
-        echo "Starting attempt ${taskFailCount} of ${hiveFileName} taskId: ${fileRoot}"
+        echo "$(date) Starting attempt ${taskFailCount} of ${hiveFileName} taskId: ${fileRoot}"
         # Make the directory as needed
         ssh ${hiveServerUserName}@${hiveServer} "mkdir -p "${hiveDir}
-        sshStatus|=$?
+        let "sshStatus|=$?"
         # copy over the hive file
-        echo "Copied ${hiveFileName} to ${hiveServerUserName}@${hiveServer}:${hiveDir}/${tempHiveFileName}"
+        echo "$(date) Copied ${hiveFileName} to ${hiveServerUserName}@${hiveServer}:${hiveDir}/${tempHiveFileName}"
         scp ${hiveFileName} ${hiveServerUserName}@${hiveServer}:${hiveDir}/${tempHiveFileName}
-        sshStatus|=$?
+        let "sshStatus|=$?"
         # run the hive file
         ssh ${hiveServerUserName}@${hiveServer} "cd ${hiveDir};cat ${tempHiveFileName} >> ${logFileName}"
-        sshStatus|=$?
+        let "sshStatus|=$?"
 	    ssh ${hiveServerUserName}@${hiveServer} "cd ${hiveDir};hive -f ${tempHiveFileName} > ${resultFileName} 2>> ${logFileName}"
-        sshStatus|=$?
+        let "sshStatus|=$?"
 	    # get the results
-	    echo "Retrieving ${hiveServerUserName}@${hiveServer}:${hiveDir}/${resultFileName} and log file"
+	    echo "$(date) Retrieving ${hiveServerUserName}@${hiveServer}:${hiveDir}/${resultFileName} and log file"
 	    scp ${hiveServerUserName}@${hiveServer}:${hiveDir}/${resultFileName} ${hiveResultFileName}
-        sshStatus|=$?
+        let "sshStatus|=$?"
 	    scp ${hiveServerUserName}@${hiveServer}:${hiveDir}/${logFileName} ${logFileName}
-        sshStatus|=$?
+        let "sshStatus|=$?"
 	    #If any of the ssh stuff failed we ahve to start over
         if [[ ${sshStatus} -ne 0 ]] ; then
-            echo "One more ssh/scp commands failed for task ${fileRoot}"
+            echo "$(date) One or more ssh/scp commands failed for task ${fileRoot}"
         # if there were no ssh failures and we have a log file check the log file
         elif [[ -f ${logFileName} ]] ; then 
 	        tail $logFileName | grep -q "^OK"
-	        hiveStatus=$?
+	        let hiveStatus=$?
             if [[ ${hiveStatus} -ne 0 ]] ; then
-                echo "Attemp ${taskFailCount} failed. Killing jobs in ${logFileName}"
+                echo "$(date) Attemp ${taskFailCount} failed. Killing jobs in ${logFileName}"
                 scp ${scriptDir}/${killHiveScript} ${hiveServerUserName}@${hiveServer}:${hiveDir}/${killHiveScript}
                 ssh ${hiveServerUserName}@${hiveServer} "cd ${hiveDir}; chmod +x ${killHiveScript}; cat ${logFileName}|./${killHiveScript}"
                 sleep 10
             fi
         else
-            echo "${logFileName} missing for no known reason trying again"
+            echo "$(date) ${logFileName} missing for no known reason trying again"
+            let hiveStatus=1
         fi
-        if [[ ${sshStatus} -ne 0 || ${haveStatus -ne 0 ]] ; then
+        if [[ ${sshStatus} -ne 0 || ${haveStatus} -ne 0 ]] ; then
 	        let taskFailCount=taskFailCount+1            
         fi
     done
     if [[ ${taskFailCount} -ne 0 ]] ; then
-        echo "${tempHiveFileName} failed ${taskFailCount} times"
+        echo "$(date) ${tempHiveFileName} failed ${taskFailCount} times"
     fi
     if [[ ${hiveStatus} -ne 0 ]] ; then
-	    echo "ERROR ${tempHiveFileName} never succeeded"
+	    echo "$(date) ERROR ${tempHiveFileName} never succeeded"
 	    return 1
+    elif [[ ${sshStatus} -ne 0 ]] ; then
+        echo "$(date) ERROR one or more ssh command never succeeded"
+        return 1
     else
-        echo "Finished ${tempHiveFileName} with no apparent errors"
+        echo "$(date) Finished ${tempHiveFileName} with no apparent errors"
     fi
 
-    echo "Removing files from ${hiveServerUserName}@${hiveServer}:${hiveDir}"
+    echo "$(date) Removing files from ${hiveServerUserName}@${hiveServer}:${hiveDir}"
     ssh ${hiveServerUserName}@${hiveServer} "cd ${hiveDir};rm -f ${resultFileName} ${logFileName} ${tempHiveFileName}"
-    echo "Task ${fileRoot} loading data from ${sqlPassword} with ${PWD}/${sqlFileName}"
+
     let mysqlStatus=1
     let mysqlTryCount=0
 
     #&& [[ "${mysqlTryCount}" -lt "${maxTrys}"]] ]] ;  do
     while [[ ${mysqlStatus} -ne 0  && ${mysqlTryCount} -lt ${maxTrys} ]]; do 
+        echo "$(date) Task ${fileRoot} loading data from ${resultFileName} with ${PWD}/${sqlFileName}"
 	    mysql --local-infile -h${sqlServer} -u${sqlUser} -p${sqlPassword} < ${sqlFileName}
 	    mysqlStatus=$?
 	    let mysqlTryCount=mysqlTryCount+1
 	    sleep 5
     done
     if [[ ${mysqlStatus} -ne 0 ]] ; then
-	    echo "Task ${fileRoot} sql error failed ${mysqlTryCount} times, saving hive results"
+	    echo "$(date) Task ${fileRoot} sql error failed ${mysqlTryCount} times, saving hive results"
         mv ${hiveResultFileName} ${fileRoot}_${hiveResultFileName}
+    else
+        echo "$(date) Task ${fileRoot} successfully loaded data"
     fi
 	rm ${hiveResultFileName}
 
@@ -145,8 +152,9 @@ etlConfigFileName=${3}
 # if we do not get any strings back then execute the task
 checkResult="$(checkConfig)"
 if [[ -z ${checkResult}  ]] ; then
-	echo "Executing etl task in ${taskDir}"
+	echo "$(date) Executing etl task in ${taskDir}"
 	runHiveAndSql ${allTasksDirectory} ${taskDir}
+	echo "$(date) Finished etl task in ${taskDir}"
 else
-	echo "${checkResult}"
+	echo "$(date) ${checkResult}"
 fi
