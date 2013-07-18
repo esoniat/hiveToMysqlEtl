@@ -48,6 +48,10 @@ function checkConfig() {
 function runHiveAndSql() {
     allTaskDir=${1}
     taskDir=${2}
+	 unset debugMode
+	 if [[ ${allTaskDir} == *testTaskDirectory* ]] ; then
+		  debugMode="true"
+	 fi
     # make a unique dir for all task 
     hiveDir="${hiveResultTopDir}/${allTaskDir}/${taskDir}"
     let sshStatus=1
@@ -61,7 +65,7 @@ function runHiveAndSql() {
     # before cleaningup
     let maxTrys=5
     let taskFailCount=0
-    # set these to 1 to get in to the try loop
+    # set these to 1 to get in to the while loop
     let hiveStatus=1
     let sshStatus=1
     while [[ ${sshStatus} -ne 0 && ${hiveStatus} -ne 0  && ${taskFailCount} -lt ${maxTrys} ]]; do 
@@ -70,7 +74,7 @@ function runHiveAndSql() {
         let sshStatus=0
         echo "$(date) Starting attempt ${taskFailCount} of ${hiveFileName} taskId: ${fileRoot}"
         # Make the directory as needed
-        ssh ${hiveServerUserName}@${hiveServer} "mkdir -p "${hiveDir}
+        ssh ${hiveServerUserName}@${hiveServer} "mkdir -p \"${hiveDir}\""
         let "sshStatus|=$?"
         # copy over the hive file
         echo "$(date) Copied ${hiveFileName} to ${hiveServerUserName}@${hiveServer}:${hiveDir}/${tempHiveFileName}"
@@ -79,31 +83,37 @@ function runHiveAndSql() {
         # run the hive file
         ssh ${hiveServerUserName}@${hiveServer} "cd ${hiveDir};cat ${tempHiveFileName} >> ${logFileName}"
         let "sshStatus|=$?"
+        echo "$(date) Starting ${hiveServer}:${hiveDir}/${tempHiveFileName}"
 	    ssh ${hiveServerUserName}@${hiveServer} "cd ${hiveDir};hive -f ${tempHiveFileName} > ${resultFileName} 2>> ${logFileName}"
         let "sshStatus|=$?"
-	    # get the results
-	    echo "$(date) Retrieving ${hiveServerUserName}@${hiveServer}:${hiveDir}/${resultFileName} and log file"
-	    scp ${hiveServerUserName}@${hiveServer}:${hiveDir}/${resultFileName} ${hiveResultFileName}
-        let "sshStatus|=$?"
+        echo "$(date) Retrieving ${hiveServerUserName}@${hiveServer}:${hiveDir}/${logFileName} "
 	    scp ${hiveServerUserName}@${hiveServer}:${hiveDir}/${logFileName} ${logFileName}
         let "sshStatus|=$?"
-	    #If any of the ssh stuff failed we ahve to start over
-        if [[ ${sshStatus} -ne 0 ]] ; then
-            echo "$(date) One or more ssh/scp commands failed for task ${fileRoot}"
-        # if there were no ssh failures and we have a log file check the log file
-        elif [[ -f ${logFileName} ]] ; then 
-	        tail $logFileName | grep -q "^OK"
+        echo "Stauts test${sshStatus} -eq 0 && -f ${logFileName} "
+        # if it seems we got the log file check it
+        if [[ ${sshStatus} -eq 0 && -f ${logFileName}  ]] ; then
+	        tail -5 $logFileName | grep -q "^OK"
 	        let hiveStatus=$?
             if [[ ${hiveStatus} -ne 0 ]] ; then
                 echo "$(date) Attemp ${taskFailCount} failed. Killing jobs in ${logFileName}"
                 scp ${scriptDir}/${killHiveScript} ${hiveServerUserName}@${hiveServer}:${hiveDir}/${killHiveScript}
                 ssh ${hiveServerUserName}@${hiveServer} "cd ${hiveDir}; chmod +x ${killHiveScript}; cat ${logFileName}|./${killHiveScript}"
                 sleep 10
+            else
+	            echo "$(date) Retrieving result ${hiveServerUserName}@${hiveServer}:${hiveDir}/${resultFileName}"
+	            scp ${hiveServerUserName}@${hiveServer}:${hiveDir}/${resultFileName} ${hiveResultFileName}
+                let "sshStatus|=$?"
+                if [[ ${sshStatus} -ne 0 ]] ; then
+                    echo "$(date) Failed retrieving results"
+                fi
+                cat ${hiveResultFileName} | lzop -c > ${hiveResultFileName}.lzo
             fi
         else
-            echo "$(date) ${logFileName} missing for no known reason trying again"
-            let hiveStatus=1
+            echo "$(date) Failed retrieving log file"
+            # No log file we have to assume the hive failed
+            hiveStatus=1
         fi
+
         if [[ ${sshStatus} -ne 0 || ${haveStatus} -ne 0 ]] ; then
 	        let taskFailCount=taskFailCount+1            
         fi
@@ -129,19 +139,22 @@ function runHiveAndSql() {
 
     #&& [[ "${mysqlTryCount}" -lt "${maxTrys}"]] ]] ;  do
     while [[ ${mysqlStatus} -ne 0  && ${mysqlTryCount} -lt ${maxTrys} ]]; do 
-        echo "$(date) Task ${fileRoot} loading data from ${resultFileName} with ${PWD}/${sqlFileName}"
-	    mysql --local-infile -h${sqlServer} -u${sqlUser} -p${sqlPassword} < ${sqlFileName}
+        echo "$(date) attemp ${mysqlTrCount} task ${fileRoot} loading data from ${resultFileName} with ${PWD}/${sqlFileName}"
+	    mysql --local-infile -h${sqlServer} -u${sqlUser} -p${sqlPassword} < ${sqlFileName} 2>&1
 	    mysqlStatus=$?
 	    let mysqlTryCount=mysqlTryCount+1
 	    sleep 5
     done
     if [[ ${mysqlStatus} -ne 0 ]] ; then
-	    echo "$(date) Task ${fileRoot} sql error failed ${mysqlTryCount} times, saving hive results"
+	    echo "$(date) Task ${fileRoot} sql error failed ${mysqlTryCount} times, saving hive results in ${fileRoot}_${hiveResultFileName}"
+        mv ${hiveResultFileName} ${fileRoot}_${hiveResultFileName}
+	 elif [[ ! -z ${debugMode} ]] ; then
+		  echo "$(date) Debug mode, saving results in ${fileRoot}_${hiveResultFileName}"
         mv ${hiveResultFileName} ${fileRoot}_${hiveResultFileName}
     else
         echo "$(date) Task ${fileRoot} successfully loaded data"
     fi
-	rm ${hiveResultFileName}
+    rm ${hiveResultFileName}
 
 }
 # MAIN
