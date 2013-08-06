@@ -48,12 +48,12 @@ function checkConfig() {
 function runHiveAndSql() {
     allTaskDir=${1}
     taskDir=${2}
-	 unset debugMode
-	 if [[ ${allTaskDir} == *testTaskDirectory* ]] ; then
-		  debugMode="true"
-	 fi
+	unset debugMode
+	if [[ ${allTaskDir} == *testTaskDirectory* ]] ; then
+		debugMode="true"
+	fi
     # make a unique dir for all task 
-    hiveDir="${hiveResultTopDir}/${allTaskDir}/${taskDir}"
+    hiveDir=$(cygpath -u "${hiveResultTopDir}/${allTaskDir}/${taskDir}")
     let sshStatus=1
     # get a unique name for each file
     fileRoot="$(uuidgen)"
@@ -74,7 +74,7 @@ function runHiveAndSql() {
         let sshStatus=0
         echo "$(date) Starting attempt ${taskFailCount} of ${hiveFileName} taskId: ${fileRoot}"
         # Make the directory as needed
-        ssh ${hiveServerUserName}@${hiveServer} "mkdir -p \"${hiveDir}\""
+        ssh ${hiveServerUserName}@${hiveServer} "mkdir -vp ${hiveDir}"
         let "sshStatus|=$?"
         # copy over the hive file
         echo "$(date) Copied ${hiveFileName} to ${hiveServerUserName}@${hiveServer}:${hiveDir}/${tempHiveFileName}"
@@ -84,7 +84,7 @@ function runHiveAndSql() {
         ssh ${hiveServerUserName}@${hiveServer} "cd ${hiveDir};cat ${tempHiveFileName} >> ${logFileName}"
         let "sshStatus|=$?"
         echo "$(date) Starting ${hiveServer}:${hiveDir}/${tempHiveFileName}"
-	    ssh ${hiveServerUserName}@${hiveServer} "cd ${hiveDir};hive -f ${tempHiveFileName} > ${resultFileName} 2>> ${logFileName}"
+	    ssh ${hiveServerUserName}@${hiveServer} "cd ${hiveDir};hive  -hiveconf mapred.map.child.java.opts=-Xmx2048M  -f ${tempHiveFileName} > ${resultFileName} 2>> ${logFileName}"
         let "sshStatus|=$?"
         echo "$(date) Retrieving ${hiveServerUserName}@${hiveServer}:${hiveDir}/${logFileName} "
 	    scp ${hiveServerUserName}@${hiveServer}:${hiveDir}/${logFileName} ${logFileName}
@@ -92,10 +92,17 @@ function runHiveAndSql() {
         echo "Stauts test${sshStatus} -eq 0 && -f ${logFileName} "
         # if it seems we got the log file check it
         if [[ ${sshStatus} -eq 0 && -f ${logFileName}  ]] ; then
-	        tail -5 $logFileName | grep -q "^OK"
-	        let hiveStatus=$?
+            #FIXME:  This does not catch problems with multiple queries.
+	        #tail -5 $logFileName | grep -q "^OK"
+            # look for the two known error lines anywhere in the file
+            hiveStatus=0
+            if grep -q "^Ended Job.*with errors$" $logFileName ; then
+                hiveStatus=1
+            elif grep -q "^FAILED:.* return code " $logFileName ; then
+                hiveStatus=1
+            fi
             if [[ ${hiveStatus} -ne 0 ]] ; then
-                echo "$(date) Attemp ${taskFailCount} failed. Killing jobs in ${logFileName}"
+                echo "$(date) Attempt ${taskFailCount} failed. Killing jobs in ${logFileName}"
                 scp ${scriptDir}/${killHiveScript} ${hiveServerUserName}@${hiveServer}:${hiveDir}/${killHiveScript}
                 ssh ${hiveServerUserName}@${hiveServer} "cd ${hiveDir}; chmod +x ${killHiveScript}; cat ${logFileName}|./${killHiveScript}"
                 sleep 10
@@ -145,15 +152,19 @@ function runHiveAndSql() {
 	    let mysqlTryCount=mysqlTryCount+1
 	    sleep 5
     done
+    # If mysql failed save the result so that it can be used to recover or debug.
     if [[ ${mysqlStatus} -ne 0 ]] ; then
 	    echo "$(date) Task ${fileRoot} sql error failed ${mysqlTryCount} times, saving hive results in ${fileRoot}_${hiveResultFileName}"
-        mv ${hiveResultFileName} ${fileRoot}_${hiveResultFileName}
-	 elif [[ ! -z ${debugMode} ]] ; then
-		  echo "$(date) Debug mode, saving results in ${fileRoot}_${hiveResultFileName}"
-        mv ${hiveResultFileName} ${fileRoot}_${hiveResultFileName}
+        cp ${hiveResultFileName} ${fileRoot}_${hiveResultFileName}
     else
         echo "$(date) Task ${fileRoot} successfully loaded data"
     fi
+    # if in debug mode alwasy safe the result
+	if [[ ! -z ${debugMode} ]] ; then
+		echo "$(date) Debug mode, saving results in ${fileRoot}_${hiveResultFileName}"
+        cp ${hiveResultFileName} ${fileRoot}_${hiveResultFileName}
+    fi
+    # cleanup the result, it has been copied above
     rm ${hiveResultFileName}
 
 }

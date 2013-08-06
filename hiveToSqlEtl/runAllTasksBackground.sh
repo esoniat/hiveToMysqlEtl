@@ -48,6 +48,12 @@ if [[ -z ${allTasksDirectory} ]] ; then
     exit 1
 fi
 cd ${allTasksDirectory} >> ${scheduledRunLog}
+unset debugMode
+if [[ ${allTaskDir} == *testTaskDirectory* ]] ; then
+    echo "testTaskDirectory entering debug mode" >> ${scheduledRunLog}
+	debugMode="true"
+fi
+
 echo "$(date) Running tasks found in $PWD" >> ${scheduledRunLog}
 for taskDir in * ; do
     # Quitly ignore files
@@ -58,11 +64,17 @@ for taskDir in * ; do
     if [[ ! -f $taskDir/${etlConfigFileName} ]] ; then
 	    echo "$(date) Skiping ${taskDir}. No ${etlConfigFileName} found" >> ${scheduledRunLog}
     else
-        echo "$(date) starting task ${taskDir} in background" >> ${scheduledRunLog}
+
 	    cd ${taskDir} >> ${scheduledRunLog}
-        ${scriptDir}/runTask.sh ${allTasksDirectory} ${taskDir} ${etlConfigFileName}>> ${taskLogFileName}&
+        if [[ ! -z ${debugMode} ]] ; then
+            echo "$(date) debug mode running tasks ${taskDir} sequentially" >> ${scheduledRunLog}
+            ${scriptDir}/runTask.sh ${allTasksDirectory} ${taskDir} ${etlConfigFileName}>> ${taskLogFileName}
+        else
+            echo "$(date) starting task ${taskDir} in background" >> ${scheduledRunLog}
+            ${scriptDir}/runTask.sh ${allTasksDirectory} ${taskDir} ${etlConfigFileName}>> ${taskLogFileName}&
+        fi
         # don't fire them all of at once
-        sleep 10
+        sleep 60
 	    # return to the parent for the next task
 	    cd - > /dev/null
         echo "$(date) task ${taskDir} started" >> ${scheduledRunLog}
