@@ -1,0 +1,81 @@
+#!/bin/bash
+# 
+# This script will go through all of the directories in the
+# task directory.  Any directory containing a hiveEtlConfig file 
+# will be considered a task and using the hiveEtlConfig the
+# files in that directory as specified in the hiveEtlConfig
+# will be used to perform a hive to mysql ETL.
+#
+scriptDir=${0%/*}
+taskLogFileName="task.log"
+etlConfigFileName="hiveEtlConfig"
+
+
+
+function usage() {
+    cat <<EOF
+ usage:$0 options 
+ Runs the etl task as defined in the task directory
+
+ OPTIONS:
+  -h Show this message
+  -t Specify and etl task directory
+  -s Day ago to start (ie 30, start 30 days ago)
+  -e Day ago to end  ( ie 0 end 0 day ago)
+EOF
+}
+
+#
+# Main
+#
+while getopts "ht:s:e:" opt; do
+    case $opt  in
+	t)
+	    taskDir=${OPTARG}
+	    ;;
+	s)
+	    dayAgoStart=${OPTARG}
+	    ;;
+	e)
+	    dayAgoEnd=${OPTARG}
+	    ;;
+
+	?)
+        usage
+	    exit 1
+	    ;;
+
+    esac
+done
+# We parsed some but was it enough
+if [[ -z ${taskDir} || -z ${dayAgoStart} || -z ${dayAgoEnd} ]] ; then
+    echo "$# arguments detected"
+    echo "All arguments are required"
+    usage
+    exit 1
+fi
+if [[ ${dayAgoStart} -lt ${dayAgoEnd} ]] ; then
+    echo "Start ${dayAgoStart} is greater than end ${dayAgoEnd}"
+    exit 1
+fi
+#
+# get to the left overs (not that we need them now)
+shift $((OPTIND -1))
+#
+startDate=$(eval "date --date \"${dayAgoStart} day ago\" +%Y%m%d")
+endDate=$(eval "date --date \"${dayAgoEnd} day ago\" +%Y%m%d")
+echo "$(date) Running cachup task in ${taskDir} from ${startDate} to ${endDate}" 
+
+cd ${taskDir} 
+# So a hack for detecting test tasks has led to this hack.
+allTaskDirectory="."
+let dayAgoToRun=${dayAgoStart}
+while [[ ${dayAgoToRun} -ge ${dayAgoEnd} ]] ; do
+    dayToRunCmd="date --date \"${dayAgoToRun} day ago\" +%Y%m%d"
+    let dayAgoToRun--
+    dayToRunString=$(eval ${dayToRunCmd})
+    echo "$(date) debug mode running tasks ${taskDir} for ${dayToRunString} "
+    ${scriptDir}/runTask.sh ${allTasksDirectory} ${taskDir} ${etlConfigFileName} ${dayToRun}>> ${taskLogFileName} 2>&1
+done 
+
+echo "$(date) tasks in ${taskDir} complete"

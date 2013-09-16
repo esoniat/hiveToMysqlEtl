@@ -1,4 +1,4 @@
-@echo off
+rem @echo off
 rem
 rem A bat file to run the shell file for a scheduled run
 rem The taskDirectory (hourly,daily,weekly,etc) is specified on 
@@ -11,7 +11,8 @@ rem
 rem These only need to be changed if the code installation changes
 set logFileName=etlbat.log
 rem Use the cygwin path for the taskCommand
-set taskCommand=/cygdrive/d/Analytics/hiveEtl/etlScripts/hiveToSqlEtl/runAllTasksBackground.sh
+rem set taskCommand=/cygdrive/d/Analytics/hiveEtl/etlScripts/hiveToSqlEtl/runAllTasksBackground.sh
+set taskCommand=/cygdrive/d/Analytics/hiveEtl/hiveToMysqlEtl/hiveToSqlEtl/runAllTasksBackground.sh
 rem
 if [%1]==[] goto argerror
 set taskDirectory=%1

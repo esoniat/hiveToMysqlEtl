@@ -6,10 +6,13 @@
 # files in that directory as specified in the hiveEtlConfig
 # will be used to perform a hive to mysql ETL.
 #
-scriptDir=${0%/*}
+scriptDir=$(realpath ${0%/*})
 taskLogFileName="task.log"
 scheduledRunLog="runAll.log"
 etlConfigFileName="hiveEtlConfig"
+
+
+
 function usage() {
     cat <<EOF
  usage:$0 options 
@@ -29,13 +32,13 @@ EOF
 unset allTasksDirectory
 while getopts "ht:" opt; do
     case $opt  in
-	    t)
-	        allTasksDirectory=${OPTARG}
-	        ;;
-	    ?)
-	        usage >> ${scheduledRunLog}
-	        exit 1
-	        ;;
+	t)
+	    allTasksDirectory=${OPTARG}
+	    ;;
+	?)
+	    usage >> ${scheduledRunLog}
+	    exit 1
+	    ;;
 
     esac
 done
@@ -51,32 +54,34 @@ cd ${allTasksDirectory} >> ${scheduledRunLog}
 unset debugMode
 if [[ ${allTaskDir} == *testTaskDirectory* ]] ; then
     echo "testTaskDirectory entering debug mode" >> ${scheduledRunLog}
-	debugMode="true"
+    debugMode="true"
 fi
 
 echo "$(date) Running tasks found in $PWD" >> ${scheduledRunLog}
 for taskDir in * ; do
     # Quitly ignore files
     if [[ ! -d ${taskDir} ]] ; then
-	    continue;
+	continue;
     fi
     # Inform about dirs that do not have config files.
     if [[ ! -f $taskDir/${etlConfigFileName} ]] ; then
-	    echo "$(date) Skiping ${taskDir}. No ${etlConfigFileName} found" >> ${scheduledRunLog}
+	echo "$(date) Skiping ${taskDir}. No ${etlConfigFileName} found" >> ${scheduledRunLog}
     else
 
-	    cd ${taskDir} >> ${scheduledRunLog}
+	cd ${taskDir} >> ${scheduledRunLog}
         if [[ ! -z ${debugMode} ]] ; then
             echo "$(date) debug mode running tasks ${taskDir} sequentially" >> ${scheduledRunLog}
-            ${scriptDir}/runTask.sh ${allTasksDirectory} ${taskDir} ${etlConfigFileName}>> ${taskLogFileName}
+            ${scriptDir}/runTask.sh ${allTasksDirectory} ${taskDir} ${etlConfigFileName} >> ${taskLogFileName} 2>&1
         else
             echo "$(date) starting task ${taskDir} in background" >> ${scheduledRunLog}
-            ${scriptDir}/runTask.sh ${allTasksDirectory} ${taskDir} ${etlConfigFileName}>> ${taskLogFileName}&
+            ${scriptDir}/runTask.sh ${allTasksDirectory} ${taskDir} ${etlConfigFileName}>> ${taskLogFileName} 2>&1 &
         fi
         # don't fire them all of at once
-        sleep 60
-	    # return to the parent for the next task
-	    cd - > /dev/null
+	if [[ ! -z ${debugMode} ]] ; then
+            sleep 60
+	fi
+	# return to the parent for the next task
+	cd - > /dev/null
         echo "$(date) task ${taskDir} started" >> ${scheduledRunLog}
     fi
 done	 

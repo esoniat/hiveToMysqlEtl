@@ -1,0 +1,18 @@
+-- Set the number of days AGO here
+-- 
+SET DAYS_AGO=0;
+--
+--
+SET SECONDS_OFFSET=(86000*${hiveconf:DAYS_AGO});
+
+
+select session_id,UDE_VALUE,from_unixtime(round(UDE_START_TIME/1000)) from(
+	select session_id,concat("{", regexp_replace(UDES, "\\[\\{|\\}\\]", ""), "}") tttt
+	from(
+	    select session_id,get_json_object(evts, '$.PUDEValue.evts[*]') UDE
+		from vs_hdfs_v1 
+		where site='4743433' 
+		AND day > FROM_unixTime(unix_timestamp() - ${hiveconf:SECONDS_OFFSET},'yyyyMMdd'))a1	
+	LATERAL VIEW explode(split( UDE, "\\},\\{")) adTable AS UDES)a2
+	LATERAL VIEW  json_tuple(tttt, 'UDE_GLOBAL_NAME', 'UDE_VALUE', 'SESSION_START_TIME') b as UDE_NAME, UDE_VALUE, UDE_START_TIME			
+		WHERE UDE_NAME LIKE('%salesApplicationID%');
