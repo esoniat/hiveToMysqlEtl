@@ -1,7 +1,7 @@
 # This runs the tasks in a specific task directory
 #
 hiveResultTopDir="adHocEtl"
-scriptDir=${0%/*}a
+scriptDir=${0%/*}
 killHiveScript="killAllJobsFromLog.sh"
 # check for and report errors in the config.
 # exit after checking all variables
@@ -76,7 +76,7 @@ function runHiveAndSql() {
         let sshStatus=0
         echo "$(date) Starting attempt ${taskFailCount} of ${hiveFileName} taskId: ${fileRoot}"
         # Make the directory as needed
-        ssh ${hiveServerUserName}@${hiveServer} "mkdir -vp ${hiveDir}"
+        ssh -oBatchMode=yes ${hiveServerUserName}@${hiveServer} "mkdir -vp ${hiveDir}"
         let lastSsh=$?
         let "sshStatus|=${lastSsh}"
         if [[ ${lastSsh} -ne 0 ]] ; then
@@ -85,39 +85,39 @@ function runHiveAndSql() {
         fi
         # copy over the hive file
         echo "$(date) Copying ${hiveFileName} to ${hiveServerUserName}@${hiveServer}:${hiveDir}/${tempHiveFileName}"
-        scp ${hiveFileName} ${hiveServerUserName}@${hiveServer}:${hiveDir}/${tempHiveFileName}
+        scp  -oBatchMode=yes ${hiveFileName} ${hiveServerUserName}@${hiveServer}:${hiveDir}/${tempHiveFileName}
         let lastSsh=$?
         let "sshStatus|=${lastSsh}"
         if [[ ${lastSsh} -ne 0 ]] ; then
 	    echo "$(date) Failed copying hive file to remote server"
-            echo "$(date)  scp ${hiveFileName} ${hiveServerUserName}@${hiveServer}:${hiveDir}/${tempHiveFileName} failed"
+            echo "$(date)  scp  -oBatchMode=yes ${hiveFileName} ${hiveServerUserName}@${hiveServer}:${hiveDir}/${tempHiveFileName} failed"
         fi
 
         # run the hive file
-        ssh ${hiveServerUserName}@${hiveServer} "cd ${hiveDir};cat ${tempHiveFileName} >> ${logFileName}"
+        ssh -oBatchMode=yes ${hiveServerUserName}@${hiveServer} "cd ${hiveDir};cat ${tempHiveFileName} >> ${logFileName}"
         let lastSsh=$?
         let "sshStatus|=${lastSsh}"
         if [[ ${lastSsh} -ne 0 ]] ; then
 	    echo "$(date) Failed copying hive file to log on remote server"
-            echo "$(date) ssh ${hiveServerUserName}@${hiveServer} cd ${hiveDir};cat ${tempHiveFileName} >> ${logFileName}"
+            echo "$(date) ssh -oBatchMode=yes ${hiveServerUserName}@${hiveServer} cd ${hiveDir};cat ${tempHiveFileName} >> ${logFileName}"
         fi
         # A script can use this as the date for the run or it can use its own calculation
         echo "$(date) Starting ${hiveServer}:${hiveDir}/${tempHiveFileName} for date(s) ${dateString}"
-        ssh ${hiveServerUserName}@${hiveServer} "cd ${hiveDir};hive  -hiveconf mapred.map.child.java.opts=-Xmx2048M  -hiveconf dateString=${dateString} -f ${tempHiveFileName} > ${resultFileName} 2>> ${logFileName}"
+        ssh  -oBatchMode=yes ${hiveServerUserName}@${hiveServer} "cd ${hiveDir};hive  -hiveconf mapred.map.child.java.opts=-Xmx2048M  -hiveconf dateString=${dateString} -f ${tempHiveFileName} > ${resultFileName} 2>> ${logFileName}"
         let lastSsh=$?
         let "sshStatus|=${lastSsh}"
         if [[ ${lastSsh} -ne 0 ]] ; then
 	    echo "$(date) Failed executing hive on remote server"
-            echo "$(date) ssh ${hiveServerUserName}@${hiveServer} cd ${hiveDir};hive  -hiveconf mapred.map.child.java.opts=-Xmx2048M  -f ${tempHiveFileName} > ${resultFileName} 2>> ${logFileName}"
+            echo "$(date) ssh  -oBatchMode=yes ${hiveServerUserName}@${hiveServer} cd ${hiveDir};hive  -hiveconf mapred.map.child.java.opts=-Xmx2048M  -f ${tempHiveFileName} > ${resultFileName} 2>> ${logFileName}"
         fi
         
         echo "$(date) Retrieving ${hiveServerUserName}@${hiveServer}:${hiveDir}/${logFileName} "
-        scp ${hiveServerUserName}@${hiveServer}:${hiveDir}/${logFileName} ${logFileName}
+        scp  -oBatchMode=yes ${hiveServerUserName}@${hiveServer}:${hiveDir}/${logFileName} ${logFileName}
         let lastSsh=$?
         let "sshStatus|=${lastSsh}"
         if [[ ${lastSsh} -ne 0 ]] ; then
 	    echo "$(date) Failed retrieving log file from remote server"
-            echo "$(date) scp ${hiveServerUserName}@${hiveServer}:${hiveDir}/${logFileName} ${logFileName}"
+            echo "$(date) scp  -oBatchMode=yes ${hiveServerUserName}@${hiveServer}:${hiveDir}/${logFileName} ${logFileName}"
         fi
         echo "Status test${sshStatus} -eq 0 && -f ${logFileName} "
         # if it seems we got the log file check it
@@ -131,12 +131,12 @@ function runHiveAndSql() {
             fi
             if [[ ${hiveStatus} -ne 0 ]] ; then
                 echo "$(date) Attempt ${taskFailCount} failed. Killing jobs in ${logFileName}"
-                scp ${scriptDir}/${killHiveScript} ${hiveServerUserName}@${hiveServer}:${hiveDir}/${killHiveScript}
-                ssh ${hiveServerUserName}@${hiveServer} "cd ${hiveDir}; chmod +x ${killHiveScript}; cat ${logFileName}|./${killHiveScript}"
+                scp  -oBatchMode=yes ${scriptDir}/${killHiveScript} ${hiveServerUserName}@${hiveServer}:${hiveDir}/${killHiveScript}
+                ssh  -oBatchMode=yes ${hiveServerUserName}@${hiveServer} "cd ${hiveDir}; chmod +x ${killHiveScript}; cat ${logFileName}|./${killHiveScript}"
                 sleep 10
             else
                 echo "$(date) Retrieving result ${hiveServerUserName}@${hiveServer}:${hiveDir}/${resultFileName}"
-                scp ${hiveServerUserName}@${hiveServer}:${hiveDir}/${resultFileName} ${hiveResultFileName}
+                scp  -oBatchMode=yes ${hiveServerUserName}@${hiveServer}:${hiveDir}/${resultFileName} ${hiveResultFileName}
                 let "sshStatus|=$?"
                 if [[ ${sshStatus} -ne 0 ]] ; then
                     echo "$(date) Failed retrieving results"
@@ -167,7 +167,7 @@ function runHiveAndSql() {
     fi
 
     echo "$(date) Removing files from ${hiveServerUserName}@${hiveServer}:${hiveDir}"
-    ssh ${hiveServerUserName}@${hiveServer} "cd ${hiveDir};rm -f ${resultFileName} ${logFileName} ${tempHiveFileName}"
+    ssh  -oBatchMode=yes ${hiveServerUserName}@${hiveServer} "cd ${hiveDir};rm -f ${resultFileName} ${logFileName} ${tempHiveFileName}"
 
     let mysqlStatus=1
     let mysqlTryCount=0

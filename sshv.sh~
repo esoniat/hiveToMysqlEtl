@@ -1,0 +1,3 @@
+#!/bin/bash
+# See what ssh is doing
+ssh -vvv "$@"

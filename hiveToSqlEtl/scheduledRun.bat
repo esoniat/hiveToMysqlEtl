@@ -19,7 +19,8 @@ set taskDirectory=%1
 set logFileName=%taskDirectory%\scheduledBatFile.log
 rem The task execution
 rem for some reason this doesn't log
-bash  %taskCommand% -t %taskDirectory% >>%logFileName%
+start /B bash  %taskCommand% -t %taskDirectory% >>%logFileName%
 goto :eof
 :argerror
 echo "No taskDirectory argument provided." >> %logFileName%
+:eof

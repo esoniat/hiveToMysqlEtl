@@ -1,0 +1,17 @@
+rem @echo off
+rem
+rem 
+rem These only need to be changed if the code installation changes
+set logFileName=etlbat.log
+rem Use the cygwin path for the taskCommand
+set taskCommand=/cygdrive/d/Analytics/hiveEtl/etlScripts/hiveToSqlEtl/testKnownSshHosts
+rem
+if [%1]==[] goto argerror
+set taskDirectory=%1
+set logFileName=%taskDirectory%\testKnownSshHosts.log
+rem The task execution
+rem for some reason this doesn't log
+bash  %taskCommand%  >>%logFileName%
+goto :eof
+:argerror
+echo "No taskDirectory argument provided." >> %logFileName%

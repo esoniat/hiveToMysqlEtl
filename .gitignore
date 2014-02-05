@@ -7,3 +7,6 @@ target/
 
 # ignore all files ending with ~
 *~ 
+
+#ignore emacs recovery files
+\#*#
